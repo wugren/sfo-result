@@ -1,8 +1,19 @@
 use std::fmt::{Debug, Display};
 pub use anyhow::Error as AnyError;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 pub type Result<T> = std::result::Result<T, AnyError>;
 
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+pub struct Error<T> {
+    code: T,
+    msg: String,
+}
+
+#[cfg(not(feature = "serde"))]
 pub struct Error<T> {
     code: T,
     msg: String,
