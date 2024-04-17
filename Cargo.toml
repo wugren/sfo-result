@@ -2,7 +2,9 @@
 name = "sfo-result"
 version = "0.1.0"
 edition = "2021"
+license-file = "LICENSE"
 repository = "https://github.com/wugren/sfo-result.git"
+description = "A simple Result type for Rust"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
