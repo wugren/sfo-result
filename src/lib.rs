@@ -176,7 +176,7 @@ macro_rules! into_err {
         |e| {
             #[cfg(feature = "log")]
             log::error!("{} err:{:?}", format!($($arg)*), e);
-            sfo_result::Error::from($err, format!("{} err {}", format!($($arg)*), e))
+            sfo_result::Error::from(($err, format!("{} err {}", format!($($arg)*), e)))
         }
     };
 }
