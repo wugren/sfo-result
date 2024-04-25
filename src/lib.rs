@@ -1,4 +1,4 @@
-use std::any::{Any, type_name};
+use std::any::{type_name};
 use std::backtrace::{Backtrace, BacktraceStatus};
 use std::fmt::{Debug, Display};
 
@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 pub struct Error<T> {
     code: T,
     msg: String,
+    #[serde(skip)]
     source: Option<Box<(dyn std::error::Error + 'static + Send + Sync)>>,
+    #[serde(skip)]
     backtrace: Option<Backtrace>,
 }
 
@@ -47,12 +49,17 @@ impl<T: Debug + Copy + Sync + Send + 'static> Error<T> {
     pub fn msg(&self) -> &str {
         &self.msg
     }
+
+    #[cfg(feature = "backtrace")]
+    pub fn backtrace(&self) -> Option<&Backtrace> {
+        self.backtrace.as_ref()
+    }
 }
 
 impl<T: Debug + Clone + Copy> std::error::Error for Error<T> {
-    // fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-    //     self.source.as_ref().map(|e| e.as_ref())
-    // }
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.source.as_ref().map(|e| e.as_ref() as _)
+    }
 }
 
 impl<T: Debug> Debug for Error<T> {
