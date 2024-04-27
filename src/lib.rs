@@ -152,6 +152,22 @@ impl<T, E: std::error::Error + 'static + Send + Sync> From<(T, String, E)> for E
     }
 }
 
+impl<T, E: std::error::Error + 'static + Send + Sync> From<(T, &str, E)> for Error<T> {
+    fn from(value: (T, &str, E)) -> Self {
+        #[cfg(feature = "backtrace")]
+            let backtrace = Some(Backtrace::force_capture());
+
+        #[cfg(not(feature = "backtrace"))]
+            let backtrace = None;
+        Self {
+            code: value.0,
+            msg: value.1.to_string(),
+            source: Some(Box::new(value.2)),
+            backtrace,
+        }
+    }
+}
+
 #[macro_export]
 macro_rules! err {
     ( $err: expr, $($arg:tt)*) => {
@@ -176,7 +192,7 @@ macro_rules! into_err {
         |e| {
             #[cfg(feature = "log")]
             log::error!("{} err:{:?}", format!($($arg)*), e);
-            sfo_result::Error::from(($err, format!("{} err {}", format!($($arg)*), e)))
+            sfo_result::Error::from(($err, format!($($arg)*), e))
         }
     };
 }
