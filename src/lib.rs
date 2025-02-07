@@ -170,9 +170,14 @@ impl<T, E: std::error::Error + 'static + Send + Sync> From<(T, &str, E)> for Err
 
 #[macro_export]
 macro_rules! err {
+    ( $err: expr) => {
+        {
+            log::error!("{:?}", format!($err));
+            sfo_result::Error::new($err, "".to_string())
+        }
+    };
     ( $err: expr, $($arg:tt)*) => {
         {
-            #[cfg(feature = "log")]
             log::error!("{}", format!($($arg)*));
             sfo_result::Error::new($err, format!("{}", format!($($arg)*)))
         }
@@ -183,14 +188,12 @@ macro_rules! err {
 macro_rules! into_err {
     ($err: expr) => {
         |e| {
-            #[cfg(feature = "log")]
             log::error!("err:{:?}", e);
             sfo_result::Error::from(($err, "".to_string(), e))
         }
     };
     ($err: expr, $($arg:tt)*) => {
         |e| {
-            #[cfg(feature = "log")]
             log::error!("{} err:{:?}", format!($($arg)*), e);
             sfo_result::Error::from(($err, format!($($arg)*), e))
         }

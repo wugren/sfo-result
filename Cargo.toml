@@ -1,6 +1,6 @@
 [package]
 name = "sfo-result"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2021"
 license-file = "LICENSE"
 repository = "https://github.com/wugren/sfo-result.git"
@@ -9,8 +9,8 @@ description = "A simple Result type for Rust"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-log = { version = "0.4.21", optional = true}
-serde = { version = "1.0.198", features = ["derive"], optional = true}
+log = { version = "0.4.25", optional = true}
+serde = { version = "1.0.217", features = ["derive"], optional = true}
 
 [features]
 backtrace = []
