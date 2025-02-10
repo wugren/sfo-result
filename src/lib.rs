@@ -172,7 +172,7 @@ impl<T, E: std::error::Error + 'static + Send + Sync> From<(T, &str, E)> for Err
 macro_rules! err {
     ( $err: expr) => {
         {
-            log::error!("{:?}", format!($err));
+            log::error!("{:?}", $err);
             sfo_result::Error::new($err, "".to_string())
         }
     };
