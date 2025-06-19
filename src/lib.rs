@@ -168,17 +168,41 @@ impl<T, E: std::error::Error + 'static + Send + Sync> From<(T, &str, E)> for Err
     }
 }
 
+#[cfg(feature = "log")]
+pub use log::error as serror;
+
+#[cfg(feature = "log")]
+#[macro_export]
+macro_rules! error {
+    // error!(target: "my_target", key1 = 42, key2 = true; "a {} event", "log")
+    // error!(target: "my_target", "a {} event", "log")
+    (target: $target:expr, $($arg:tt)+) => ($crate::serror!($target, $($arg)+));
+
+    // error!("a {} event", "log")
+    ($($arg:tt)+) => ($crate::serror!($($arg)+))
+}
+#[cfg(not(feature = "log"))]
+#[macro_export]
+macro_rules! error {
+    // error!(target: "my_target", key1 = 42, key2 = true; "a {} event", "log")
+    // error!(target: "my_target", "a {} event", "log")
+    (target: $target:expr, $($arg:tt)+) => ();
+
+    // error!("a {} event", "log")
+    ($($arg:tt)+) => ()
+}
+
 #[macro_export]
 macro_rules! err {
     ( $err: expr) => {
         {
-            log::error!("{:?}", $err);
+            sfo_result::error!("{:?}", $err);
             sfo_result::Error::new($err, "".to_string())
         }
     };
     ( $err: expr, $($arg:tt)*) => {
         {
-            log::error!("{}", format!($($arg)*));
+            sfo_result::error!("{}", format!($($arg)*));
             sfo_result::Error::new($err, format!("{}", format!($($arg)*)))
         }
     };
@@ -188,13 +212,13 @@ macro_rules! err {
 macro_rules! into_err {
     ($err: expr) => {
         |e| {
-            log::error!("err:{:?}", e);
+            sfo_result::error!("err:{:?}", e);
             sfo_result::Error::from(($err, "".to_string(), e))
         }
     };
     ($err: expr, $($arg:tt)*) => {
         |e| {
-            log::error!("{} err:{:?}", format!($($arg)*), e);
+            sfo_result::error!("{} err:{:?}", format!($($arg)*), e);
             sfo_result::Error::from(($err, format!($($arg)*), e))
         }
     };

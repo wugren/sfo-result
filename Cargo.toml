@@ -1,6 +1,6 @@
 [package]
 name = "sfo-result"
-version = "0.2.6"
+version = "0.2.7"
 edition = "2021"
 license-file = "LICENSE"
 repository = "https://github.com/wugren/sfo-result.git"
@@ -14,3 +14,4 @@ serde = { version = "1.0.217", features = ["derive"], optional = true}
 
 [features]
 backtrace = []
+log = ["dep:log"]
