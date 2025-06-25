@@ -196,14 +196,14 @@ macro_rules! error {
 macro_rules! err {
     ( $err: expr) => {
         {
-            sfo_result::error!("{:?}", $err);
-            sfo_result::Error::new($err, "".to_string())
+            $crate::error!("{:?}", $err);
+            $crate::Error::new($err, "".to_string())
         }
     };
     ( $err: expr, $($arg:tt)*) => {
         {
-            sfo_result::error!("{}", format!($($arg)*));
-            sfo_result::Error::new($err, format!("{}", format!($($arg)*)))
+            $crate::error!("{}", format!($($arg)*));
+            $crate::Error::new($err, format!("{}", format!($($arg)*)))
         }
     };
 }
@@ -212,14 +212,14 @@ macro_rules! err {
 macro_rules! into_err {
     ($err: expr) => {
         |e| {
-            sfo_result::error!("err:{:?}", e);
-            sfo_result::Error::from(($err, "".to_string(), e))
+            $crate::error!("err:{:?}", e);
+            $crate::Error::from(($err, "".to_string(), e))
         }
     };
     ($err: expr, $($arg:tt)*) => {
         |e| {
-            sfo_result::error!("{} err:{:?}", format!($($arg)*), e);
-            sfo_result::Error::from(($err, format!($($arg)*), e))
+            $crate::error!("{} err:{:?}", format!($($arg)*), e);
+            $crate::Error::from(($err, format!($($arg)*), e))
         }
     };
 }
