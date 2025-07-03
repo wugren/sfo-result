@@ -31,7 +31,24 @@ pub struct Error<T> {
 pub type Result<T, C> = std::result::Result<T, Error<C>>;
 
 impl<T: Debug + Copy + Sync + Send + 'static> Error<T> {
-    pub fn new(code: T, msg: String, file: &str, line: u32) -> Self {
+    pub fn new(code: T, msg: String) -> Self {
+        #[cfg(feature = "backtrace")]
+        let backtrace = Some(Backtrace::force_capture());
+
+        #[cfg(not(feature = "backtrace"))]
+        let backtrace = None;
+
+        Self {
+            code,
+            msg,
+            source: None,
+            backtrace,
+            file: None,
+            line: None,
+        }
+    }
+
+    pub fn new2(code: T, msg: String, file: &str, line: u32) -> Self {
         #[cfg(feature = "backtrace")]
         let backtrace = Some(Backtrace::force_capture());
 
@@ -239,13 +256,13 @@ macro_rules! err {
     ( $err: expr) => {
         {
             $crate::error!("{:?}", $err);
-            $crate::Error::new($err, "".to_string(), file!(), line!())
+            $crate::Error::new2($err, "".to_string(), file!(), line!())
         }
     };
     ( $err: expr, $($arg:tt)*) => {
         {
             $crate::error!("{}", format!($($arg)*));
-            $crate::Error::new($err, format!("{}", format!($($arg)*)), file!(), line!())
+            $crate::Error::new2($err, format!("{}", format!($($arg)*)), file!(), line!())
         }
     };
 }
@@ -279,7 +296,7 @@ mod test {
     #[test]
     fn test() {
         use crate as sfo_result;
-        let error = sfo_result::Error::new(1, "test".to_string(), file!(), line!());
+        let error = sfo_result::Error::new2(1, "test".to_string(), file!(), line!());
         println!("{:?}", error);
 
         let error = err!(1, "test");
