@@ -14,6 +14,8 @@ pub struct Error<T> {
     source: Option<Box<(dyn std::error::Error + 'static + Send + Sync)>>,
     #[serde(skip)]
     backtrace: Option<Backtrace>,
+    file: Option<String>,
+    line: Option<u32>,
 }
 
 #[cfg(not(feature = "serde"))]
@@ -22,12 +24,14 @@ pub struct Error<T> {
     msg: String,
     source: Option<Box<(dyn std::error::Error + 'static + Send + Sync)>>,
     backtrace: Option<Backtrace>,
+    file: Option<String>,
+    line: Option<u32>,
 }
 
 pub type Result<T, C> = std::result::Result<T, Error<C>>;
 
 impl<T: Debug + Copy + Sync + Send + 'static> Error<T> {
-    pub fn new(code: T, msg: String) -> Self {
+    pub fn new(code: T, msg: String, file: &str, line: u32) -> Self {
         #[cfg(feature = "backtrace")]
         let backtrace = Some(Backtrace::force_capture());
 
@@ -39,6 +43,8 @@ impl<T: Debug + Copy + Sync + Send + 'static> Error<T> {
             msg,
             source: None,
             backtrace,
+            file: Some(file.to_string()),
+            line: Some(line),
         }
     }
 
@@ -65,11 +71,13 @@ impl<T: Debug + Clone + Copy> std::error::Error for Error<T> {
 impl<T: Debug> Debug for Error<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{:?}", type_name::<T>(), self.code)?;
+
+        if self.file.is_some() && self.line.is_some() {
+            write!(f, " at:[{}:{}]", self.file.as_ref().unwrap(), self.line.as_ref().unwrap())?;
+        }
+
         if !self.msg.is_empty() {
             write!(f, ", msg:{}", self.msg)?;
-        }
-        if self.source.is_some() {
-            write!(f, "\nCaused by: {:?}", self.source.as_ref().unwrap())?;
         }
         if let Some(backtrace) = &self.backtrace {
             if let BacktraceStatus::Captured = backtrace.status() {
@@ -86,6 +94,9 @@ impl<T: Debug> Debug for Error<T> {
                 backtrace.truncate(backtrace.trim_end().len());
                 write!(f, "{}", backtrace)?;
             }
+        }
+        if self.source.is_some() {
+            write!(f, "\nCaused by: {:?}", self.source.as_ref().unwrap())?;
         }
         Ok(())
     }
@@ -94,11 +105,13 @@ impl<T: Debug> Debug for Error<T> {
 impl<T: Debug> Display for Error<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{:?}", type_name::<T>(), self.code)?;
+
+        if self.file.is_some() && self.line.is_some() {
+            write!(f, " at:[{}:{}]", self.file.as_ref().unwrap(), self.line.as_ref().unwrap())?;
+        }
+
         if !self.msg.is_empty() {
             write!(f, ", msg:{}", self.msg)?;
-        }
-        if self.source.is_some() {
-            write!(f, "\nCaused by: {:?}", self.source.as_ref().unwrap())?;
         }
         if let Some(backtrace) = &self.backtrace {
             if let BacktraceStatus::Captured = backtrace.status() {
@@ -115,6 +128,9 @@ impl<T: Debug> Display for Error<T> {
                 backtrace.truncate(backtrace.trim_end().len());
                 write!(f, "{}", backtrace)?;
             }
+        }
+        if self.source.is_some() {
+            write!(f, "\nCaused by: {:?}", self.source.as_ref().unwrap())?;
         }
         Ok(())
     }
@@ -132,6 +148,8 @@ impl<T: Default> From<String> for Error<T> {
             msg: value,
             source: None,
             backtrace,
+            file: None,
+            line: None,
         }
     }
 }
@@ -143,17 +161,39 @@ impl<T, E: std::error::Error + 'static + Send + Sync> From<(T, String, E)> for E
 
         #[cfg(not(feature = "backtrace"))]
             let backtrace = None;
+
         Self {
             code: value.0,
             msg: value.1,
             source: Some(Box::new(value.2)),
             backtrace,
+            file: None,
+            line: None,
         }
     }
 }
 
-impl<T, E: std::error::Error + 'static + Send + Sync> From<(T, &str, E)> for Error<T> {
-    fn from(value: (T, &str, E)) -> Self {
+impl<T, E: std::error::Error + 'static + Send + Sync> From<(T, String, E, &str, u32)> for Error<T> {
+    fn from(value: (T, String, E, &str, u32)) -> Self {
+        #[cfg(feature = "backtrace")]
+        let backtrace = Some(Backtrace::force_capture());
+
+        #[cfg(not(feature = "backtrace"))]
+        let backtrace = None;
+
+        Self {
+            code: value.0,
+            msg: value.1,
+            source: Some(Box::new(value.2)),
+            backtrace,
+            file: Some(value.3.to_string()),
+            line: Some(value.4),
+        }
+    }
+}
+
+impl<T, E: std::error::Error + 'static + Send + Sync> From<(T, &str, E, &str, u32)> for Error<T> {
+    fn from(value: (T, &str, E, &str, u32)) -> Self {
         #[cfg(feature = "backtrace")]
             let backtrace = Some(Backtrace::force_capture());
 
@@ -164,6 +204,8 @@ impl<T, E: std::error::Error + 'static + Send + Sync> From<(T, &str, E)> for Err
             msg: value.1.to_string(),
             source: Some(Box::new(value.2)),
             backtrace,
+            file: Some(value.3.to_string()),
+            line: Some(value.4),
         }
     }
 }
@@ -197,13 +239,13 @@ macro_rules! err {
     ( $err: expr) => {
         {
             $crate::error!("{:?}", $err);
-            $crate::Error::new($err, "".to_string())
+            $crate::Error::new($err, "".to_string(), file!(), line!())
         }
     };
     ( $err: expr, $($arg:tt)*) => {
         {
             $crate::error!("{}", format!($($arg)*));
-            $crate::Error::new($err, format!("{}", format!($($arg)*)))
+            $crate::Error::new($err, format!("{}", format!($($arg)*)), file!(), line!())
         }
     };
 }
@@ -213,13 +255,13 @@ macro_rules! into_err {
     ($err: expr) => {
         |e| {
             $crate::error!("err:{:?}", e);
-            $crate::Error::from(($err, "".to_string(), e))
+            $crate::Error::from(($err, "".to_string(), e, file!(), line!()))
         }
     };
     ($err: expr, $($arg:tt)*) => {
         |e| {
             $crate::error!("{} err:{:?}", format!($($arg)*), e);
-            $crate::Error::from(($err, format!($($arg)*), e))
+            $crate::Error::from(($err, format!($($arg)*), e, file!(), line!()))
         }
     };
 }
@@ -237,7 +279,7 @@ mod test {
     #[test]
     fn test() {
         use crate as sfo_result;
-        let error = sfo_result::Error::new(1, "test".to_string());
+        let error = sfo_result::Error::new(1, "test".to_string(), file!(), line!());
         println!("{:?}", error);
 
         let error = err!(1, "test");
