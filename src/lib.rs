@@ -90,7 +90,17 @@ impl<T: Debug> Debug for Error<T> {
         write!(f, "{}:{:?}", type_name::<T>(), self.code)?;
 
         if self.file.is_some() && self.line.is_some() {
-            write!(f, " at:[{}:{}]", self.file.as_ref().unwrap(), self.line.as_ref().unwrap())?;
+            let file = self.file.as_ref().unwrap();
+            let file = if let Some(pos) = file.rfind("src") {
+                if let Some(pos) = &file[..pos-1].rfind(&['/', '\\']) {
+                    &file[pos+1..]
+                } else {
+                    file
+                }
+            } else {
+                file
+            };
+            write!(f, " at:[{}:{}]", file, self.line.as_ref().unwrap())?;
         }
 
         if !self.msg.is_empty() {
@@ -124,7 +134,17 @@ impl<T: Debug> Display for Error<T> {
         write!(f, "{}:{:?}", type_name::<T>(), self.code)?;
 
         if self.file.is_some() && self.line.is_some() {
-            write!(f, " at:[{}:{}]", self.file.as_ref().unwrap(), self.line.as_ref().unwrap())?;
+            let file = self.file.as_ref().unwrap();
+            let file = if let Some(pos) = file.rfind("src") {
+                if let Some(pos) = &file[..pos-1].rfind(&['/', '\\']) {
+                    &file[pos+1..]
+                } else {
+                    file
+                }
+            } else {
+                file
+            };
+            write!(f, " at:[{}:{}]", file, self.line.as_ref().unwrap())?;
         }
 
         if !self.msg.is_empty() {
