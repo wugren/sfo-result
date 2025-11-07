@@ -92,7 +92,9 @@ impl<T: Debug> Debug for Error<T> {
         if self.file.is_some() && self.line.is_some() {
             let file = self.file.as_ref().unwrap();
             let file = if let Some(pos) = file.rfind("src") {
-                if let Some(pos) = &file[..pos-1].rfind(&['/', '\\']) {
+                if pos == 0 {
+                    file
+                } else if let Some(pos) = &file[..pos-1].rfind(&['/', '\\']) {
                     &file[pos+1..]
                 } else {
                     file
@@ -136,7 +138,9 @@ impl<T: Debug> Display for Error<T> {
         if self.file.is_some() && self.line.is_some() {
             let file = self.file.as_ref().unwrap();
             let file = if let Some(pos) = file.rfind("src") {
-                if let Some(pos) = &file[..pos-1].rfind(&['/', '\\']) {
+                if pos == 0 {
+                    file
+                } else if let Some(pos) = &file[..pos-1].rfind(&['/', '\\']) {
                     &file[pos+1..]
                 } else {
                     file
