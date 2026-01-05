@@ -48,7 +48,7 @@ dependencies = [
 
 [[package]]
 name = "sfo-result"
-version = "0.2.12"
+version = "0.2.13"
 dependencies = [
  "log",
  "serde",

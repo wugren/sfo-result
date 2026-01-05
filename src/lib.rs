@@ -11,7 +11,7 @@ pub struct Error<T> {
     code: T,
     msg: String,
     #[serde(skip)]
-    source: Option<Box<(dyn std::error::Error + 'static + Send + Sync)>>,
+    source: Option<Box<dyn std::error::Error + 'static + Send + Sync>>,
     #[serde(skip)]
     backtrace: Option<Backtrace>,
     file: Option<String>,
@@ -22,7 +22,7 @@ pub struct Error<T> {
 pub struct Error<T> {
     code: T,
     msg: String,
-    source: Option<Box<(dyn std::error::Error + 'static + Send + Sync)>>,
+    source: Option<Box<dyn std::error::Error + 'static + Send + Sync>>,
     backtrace: Option<Backtrace>,
     file: Option<String>,
     line: Option<u32>,
@@ -87,7 +87,9 @@ impl<T: Debug + Clone + Copy> std::error::Error for Error<T> {
 
 impl<T: Debug> Debug for Error<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{:?}", type_name::<T>(), self.code)?;
+        if type_name::<T>() != "()" {
+            write!(f, "{}:{:?} ", type_name::<T>(), self.code)?;
+        }
 
         if self.file.is_some() && self.line.is_some() {
             let file = self.file.as_ref().unwrap();
@@ -102,11 +104,11 @@ impl<T: Debug> Debug for Error<T> {
             } else {
                 file
             };
-            write!(f, " at:[{}:{}]", file, self.line.as_ref().unwrap())?;
+            write!(f, "at:[{}:{}] ", file, self.line.as_ref().unwrap())?;
         }
 
         if !self.msg.is_empty() {
-            write!(f, ", msg:{}", self.msg)?;
+            write!(f, "{}", self.msg)?;
         }
         if let Some(backtrace) = &self.backtrace {
             if let BacktraceStatus::Captured = backtrace.status() {
@@ -133,7 +135,9 @@ impl<T: Debug> Debug for Error<T> {
 
 impl<T: Debug> Display for Error<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{:?}", type_name::<T>(), self.code)?;
+        if type_name::<T>() != "()" {
+            write!(f, "{}:{:?} ", type_name::<T>(), self.code)?;
+        }
 
         if self.file.is_some() && self.line.is_some() {
             let file = self.file.as_ref().unwrap();
@@ -148,11 +152,11 @@ impl<T: Debug> Display for Error<T> {
             } else {
                 file
             };
-            write!(f, " at:[{}:{}]", file, self.line.as_ref().unwrap())?;
+            write!(f, "at:[{}:{}] ", file, self.line.as_ref().unwrap())?;
         }
 
         if !self.msg.is_empty() {
-            write!(f, ", msg:{}", self.msg)?;
+            write!(f, "{}", self.msg)?;
         }
         if let Some(backtrace) = &self.backtrace {
             if let BacktraceStatus::Captured = backtrace.status() {
@@ -207,6 +211,25 @@ impl<T, E: std::error::Error + 'static + Send + Sync> From<(T, String, E)> for E
             code: value.0,
             msg: value.1,
             source: Some(Box::new(value.2)),
+            backtrace,
+            file: None,
+            line: None,
+        }
+    }
+}
+
+impl<T: Default, E: std::error::Error + 'static + Send + Sync> From<(String, E)> for Error<T> {
+    fn from(value: (String, E)) -> Self {
+        #[cfg(feature = "backtrace")]
+        let backtrace = Some(Backtrace::force_capture());
+
+        #[cfg(not(feature = "backtrace"))]
+        let backtrace = None;
+
+        Self {
+            code: Default::default(),
+            msg: value.0,
+            source: Some(Box::new(value.1)),
             backtrace,
             file: None,
             line: None,
@@ -283,12 +306,19 @@ macro_rules! err {
             $crate::Error::new2($err, "".to_string(), file!(), line!())
         }
     };
-    ( $err: expr, $($arg:tt)*) => {
-        {
-            $crate::error!("{}", format!($($arg)*));
-            $crate::Error::new2($err, format!("{}", format!($($arg)*)), file!(), line!())
-        }
-    };
+    ( $fmt:literal $(,$args:tt)* ) => {{
+        $crate::error!($fmt, $($args),*);
+        $crate::Error::new2(
+            ::std::default::Default::default(),
+            format!($fmt $(, $args)*),
+            file!(),
+            line!()
+        )
+    }};
+    ( $err:expr, $($arg:tt)*) => {{
+        $crate::error!($($arg)*);
+        $crate::Error::new2($err, format!($($arg)*), file!(), line!())
+    }};
 }
 
 #[macro_export]
@@ -297,6 +327,12 @@ macro_rules! into_err {
         |e| {
             $crate::error!("err:{:?}", e);
             $crate::Error::from(($err, "".to_string(), e, file!(), line!()))
+        }
+    };
+    ($fmt:literal $(,$args:tt)*) => {
+        |e| {
+            $crate::error!("{} err:{:?}", format!($fmt $(, $args)*), e);
+            $crate::Error::from(($err, format!($fmt $(, $args)*), e, file!(), line!()))
         }
     };
     ($err: expr, $($arg:tt)*) => {
@@ -316,19 +352,24 @@ mod test {
         Test2,
     }
     pub type Error = super::Error<TestCode>;
+    pub type Error2 = super::Error<()>;
 
     #[test]
     fn test() {
         use crate as sfo_result;
-        let error = sfo_result::Error::new2(1, "test".to_string(), file!(), line!());
+        let error = sfo_result::Error::new2(TestCode::Test2, "test".to_string(), file!(), line!());
         println!("{:?}", error);
 
-        let error = err!(1, "test");
+        let error = err!(TestCode::Test1, "test");
         println!("{:?}", error);
 
         let error = Error::from((TestCode::Test1, "test".to_string(), error));
         println!("{:?}", error);
 
+        let error: Error = err!("test {}", 1);
+        println!("{:?}", error);
+        let error: Error2 = err!("test {}", 1);
+        println!("{:?}", error);
         // assert_eq!(format!("{:?}", error), "Error: 1, msg: test");
         // assert_eq!(format!("{}", error), "Error: 1, msg: test");
     }
