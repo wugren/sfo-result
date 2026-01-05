@@ -300,22 +300,22 @@ macro_rules! error {
 
 #[macro_export]
 macro_rules! err {
-    ( $err: expr) => {
+    ( $fmt:literal, $($arg:tt)* ) => {{
+        $crate::error!($fmt, $($arg)*);
+        $crate::Error::new2(
+            ::std::default::Default::default(),
+            format!($fmt, $($arg)*),
+            file!(),
+            line!()
+        )
+    }};
+    ( $err: path) => {
         {
             $crate::error!("{:?}", $err);
             $crate::Error::new2($err, "".to_string(), file!(), line!())
         }
     };
-    ( $fmt:literal $(,$args:tt)* ) => {{
-        $crate::error!($fmt, $($args),*);
-        $crate::Error::new2(
-            ::std::default::Default::default(),
-            format!($fmt $(, $args)*),
-            file!(),
-            line!()
-        )
-    }};
-    ( $err:expr, $($arg:tt)*) => {{
+    ( $err:path, $($arg:tt)*) => {{
         $crate::error!($($arg)*);
         $crate::Error::new2($err, format!($($arg)*), file!(), line!())
     }};
@@ -323,19 +323,25 @@ macro_rules! err {
 
 #[macro_export]
 macro_rules! into_err {
-    ($err: expr) => {
+    ( $fmt:literal, $($arg:tt)* ) => {
+        |e| {
+            $crate::error!("{} err:{:?}", format!($fmt, $($arg)*), e);
+            let msg = format!($fmt, $($arg)*);
+            $crate::Error::from((
+                ::std::default::Default::default(),
+                msg,
+                e,
+                file!(),
+                line!()))
+        }
+    };
+    ($err: path) => {
         |e| {
             $crate::error!("err:{:?}", e);
             $crate::Error::from(($err, "".to_string(), e, file!(), line!()))
         }
     };
-    ($fmt:literal $(,$args:tt)*) => {
-        |e| {
-            $crate::error!("{} err:{:?}", format!($fmt $(, $args)*), e);
-            $crate::Error::from(($err, format!($fmt $(, $args)*), e, file!(), line!()))
-        }
-    };
-    ($err: expr, $($arg:tt)*) => {
+    ($err: path, $($arg:tt)*) => {
         |e| {
             $crate::error!("{} err:{:?}", format!($($arg)*), e);
             $crate::Error::from(($err, format!($($arg)*), e, file!(), line!()))
@@ -345,6 +351,8 @@ macro_rules! into_err {
 
 #[cfg(test)]
 mod test {
+    use crate::test::TestCode::Test1;
+
     #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
     pub enum TestCode {
         #[default]
@@ -352,7 +360,30 @@ mod test {
         Test2,
     }
     pub type Error = super::Error<TestCode>;
-    pub type Error2 = super::Error<()>;
+    pub type TestResult<T> = super::Result<T, TestCode>;
+    pub type TestResult2<T> = super::Result<T, ()>;
+
+    fn test2() -> TestResult2<()> {
+        // let error: super::Error<()> = err!("test {}", 1);
+        Err(err!("test {}", 2))
+    }
+
+    #[derive(Debug)]
+    struct Test {
+        name: String,
+    }
+
+    impl Test {
+        pub fn new(name: String) -> Self {
+            Self { name }
+        }
+
+        pub fn test(&self) -> TestResult<()> {
+            let error = err!("test {:?}", self.name);
+            println!("{:?}", error);
+            Err(error)
+        }
+    }
 
     #[test]
     fn test() {
@@ -360,7 +391,7 @@ mod test {
         let error = sfo_result::Error::new2(TestCode::Test2, "test".to_string(), file!(), line!());
         println!("{:?}", error);
 
-        let error = err!(TestCode::Test1, "test");
+        let error = err!(Test1, "test");
         println!("{:?}", error);
 
         let error = Error::from((TestCode::Test1, "test".to_string(), error));
@@ -368,8 +399,19 @@ mod test {
 
         let error: Error = err!("test {}", 1);
         println!("{:?}", error);
-        let error: Error2 = err!("test {}", 1);
+        let error: super::Error<()> = err!("test {}", 1);
         println!("{:?}", error);
+
+        let ret: TestResult<()> = test2().map_err(into_err!(Test1, "test333"));
+        println!("{:?}", ret);
+        let ret: TestResult<()> = test2().map_err(into_err!(TestCode::Test1, "test333 {val}", val=1+1));
+        println!("{:?}", ret);
+        let t = "test333".to_string();
+        let ret: TestResult<()> = test2().map_err(into_err!("test333 {v}", v=t));
+        println!("{:?}", ret);
+        let test = Test::new("test".to_string());
+        let ret: TestResult<()> = test.test().map_err(into_err!("test333 {}", 1));
+        println!("{:?}", ret);
         // assert_eq!(format!("{:?}", error), "Error: 1, msg: test");
         // assert_eq!(format!("{}", error), "Error: 1, msg: test");
     }

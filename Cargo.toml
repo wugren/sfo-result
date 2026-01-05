@@ -1,7 +1,7 @@
 [package]
 name = "sfo-result"
-version = "0.2.13"
-edition = "2021"
+version = "0.2.15"
+edition = "2024"
 license-file = "LICENSE"
 repository = "https://github.com/wugren/sfo-result.git"
 description = "A simple Result type for Rust"
