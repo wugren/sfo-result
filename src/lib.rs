@@ -300,6 +300,15 @@ macro_rules! error {
 
 #[macro_export]
 macro_rules! err {
+    ( $fmt:literal ) => {{
+        $crate::error!($fmt);
+        $crate::Error::new2(
+            ::std::default::Default::default(),
+            format!($fmt),
+            file!(),
+            line!()
+        )
+    }};
     ( $fmt:literal, $($arg:tt)* ) => {{
         $crate::error!($fmt, $($arg)*);
         $crate::Error::new2(
@@ -323,6 +332,18 @@ macro_rules! err {
 
 #[macro_export]
 macro_rules! into_err {
+    ( $fmt:literal ) => {
+        |e| {
+            $crate::error!("{} err:{:?}", format!($fmt), e);
+            let msg = format!($fmt);
+            $crate::Error::from((
+                ::std::default::Default::default(),
+                msg,
+                e,
+                file!(),
+                line!()))
+        }
+    };
     ( $fmt:literal, $($arg:tt)* ) => {
         |e| {
             $crate::error!("{} err:{:?}", format!($fmt, $($arg)*), e);
@@ -399,6 +420,8 @@ mod test {
 
         let error: Error = err!("test {}", 1);
         println!("{:?}", error);
+        let error: Error = err!("test");
+        println!("{:?}", error);
         let error: super::Error<()> = err!("test {}", 1);
         println!("{:?}", error);
 
@@ -411,6 +434,8 @@ mod test {
         println!("{:?}", ret);
         let test = Test::new("test".to_string());
         let ret: TestResult<()> = test.test().map_err(into_err!("test333 {}", 1));
+        println!("{:?}", ret);
+        let ret: TestResult<()> = test.test().map_err(into_err!("test333"));
         println!("{:?}", ret);
         // assert_eq!(format!("{:?}", error), "Error: 1, msg: test");
         // assert_eq!(format!("{}", error), "Error: 1, msg: test");
